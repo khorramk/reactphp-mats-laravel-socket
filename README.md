@@ -5,4 +5,4 @@
 ## Setup
 
 1. on folder
-2. php artisan wss:server <host> <port>
+2. php artisan wss:server -host -port
