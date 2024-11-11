@@ -4,24 +4,20 @@ namespace App\Services;
 
 use App\Models\OnlineUsers;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 
 class RelayHandle
 {
     private mixed $data;
-    private $clientSocket;
+    private mixed $clientSocket;
 
-    private $connection;
-
-    private $onlineUsers;
-
+    private mixed $connection;
     private array $users = [];
 
+    private string $action = '';
 
-
-    public function __construct(OnlineUsers $onlineUsers, User $user)
+    public function __construct()
     {
-        $this->onlineUsers = $onlineUsers;
-//        $this->users = $user;
 
 
     }
@@ -34,9 +30,10 @@ class RelayHandle
 //        echo dump($this->data);
         echo json_last_error();
 //        dd(gettype($clientSocket));
+         $this->action = $this->data->action;
         $this->clientSocket = $clientSocket;
         $this->connection = $connection;
-        var_dump($this->data);
+        dump($this->data);
         echo "data ----------  \n";
 
         return $this;
@@ -64,26 +61,47 @@ class RelayHandle
     {
         echo 'now in handle';
         // var_dump('hello', $this->data['action']);
-        $action = $this->data?->action;
-        echo $action;
-        if ($action == 'ping') {
-            echo 'process ping';
-            return $this->pingHandle();
-        } else if($action == 'send_message') {
-            return $this->sendMessageHandle();
-        } else if($action == 'typing') {
-            return $this->typingHandle();
-        } else if($action == 'notification') {
-            return $this->notificationHandle();
-        } else if($action == 'send_message_in_group') {
-            return $this->sendMessageInGroupHandle();
-        } else if($action == "private_chat_request") {
-            return $this->privateChatRequestHandle();
-        } else if($action == "accept_or_reject_chat_request") {
-            return $this->acceptOrRejectChatRequestHandle();
-        } else {
-            return $this;
-        }
+//        $action = $this->data?->action;
+        echo $this->action;
+//        $this->users
+
+//        dump('list of user: ', $this->users);
+//        die();
+       return match ($this->action) {
+            'ping' => $this->pingHandle(),
+            'send_message' => $this->sendMessageHandle(),
+            'typing' => $this->typingHandle(),
+            'notification' => $this->notificationHandle(),
+            'send_message_in_group' => $this->sendMessageInGroupHandle(),
+            'private_chat_request' => $this->privateChatRequestHandle(),
+            'accept_or_reject_chat_request' => $this->acceptOrRejectChatRequestHandle(),
+            'default' => $this
+        };
+//        if ($action == 'ping') {
+//            echo 'process ping';
+//            $this->action = 'ping';
+//            return $this->pingHandle();
+//        } else if($action == 'send_message') {
+//            $this->action = 'send_message';
+//            return $this->sendMessageHandle();
+//        } else if($action == 'typing') {
+//            $this->action = 'typing';
+//            return $this->typingHandle();
+//        } else if($action == 'notification') {
+//            $this->action = 'typing';
+//            return $this->notificationHandle();
+//        } else if($action == 'send_message_in_group') {
+//            $this->action = 'typing';
+//            return $this->sendMessageInGroupHandle();
+//        } else if($action == "private_chat_request") {
+//            $this->action = 'typing';
+//            return $this->privateChatRequestHandle();
+//        } else if($action == "accept_or_reject_chat_request") {
+//            $this->action = 'typing';
+//            return $this->acceptOrRejectChatRequestHandle();
+//        } else {
+//            return $this;
+//        }
 
 //        return $this;
 
@@ -93,15 +111,10 @@ class RelayHandle
     {
         echo 'now in ping';
 
-        $this->users[$this->data->user_id] =  $this->clientSocket;
-        $this->onlineUsers->users_available = $this->data->user_id;
-        $this->onlineUsers->save();
+        $this->users[(int)$this->data->user_id] =  $this->clientSocket;
+        $onlineUsers = array_keys($this->users);
 
-        $onlineUsers = $this->onlineUsers->get()->filter(function ($user) {
-            return $user->users_available == $this->data->user;
-        })->map(function ($user) {
-            return $user->users_available;
-        });
+        Cache::put('online_users', $onlineUsers);
 
         $response =  json_encode([
             'event' => 'ping_success',
@@ -129,17 +142,20 @@ class RelayHandle
         if (count($this->users) < 1) {
             return $this;
         }
+
         $responseData = $this->data;
         $to = $responseData->data->to;
 
-        $this->onlineUsers->where('users_available', $to)->get()->each(function ($user) use ($responseData){
+        collect(Cache::get('online_users'))->filter(function ($user) use ($to) {
+            return $user === $to;
+        })->each(function ($user) use ($responseData, $to){
             $response =  json_encode([
                 'event' => 'receive_message',
                 'action' => 'messageReceived',
                 'data' => $responseData->data
             ]);
 
-            $this->sendMessage($this->users[$user->users_available], $response);
+            $this->sendMessage($this->users[$to], $response);
         });
 
 
@@ -214,14 +230,16 @@ class RelayHandle
         $responseData = $this->data;
         $to = $responseData->data->to;
 
-        $this->onlineUsers->where('users_available', $to)->get()->each(function ($user) use ($responseData) {
+        collect(cache('online_users'))->filter(function($user) use ($to) {
+            return $user === $to;
+        })->each(function ($user) use ($responseData) {
             $response =  json_encode([
                 'event' => 'receive_private_chat_request',
                 'action' => 'messageReceived',
                 'data' => $responseData->data
             ]);
 
-            $this->sendMessage($this->users[$user->users_available], $response);
+            $this->sendMessage($this->users[$user], $response);
             return $this;
         });
         return $this;
@@ -238,7 +256,7 @@ class RelayHandle
 
         $status = $responseData->data->accept_or_reject == '1' ? 'Accepted' : 'Rejected';
 
-        if (in_array($to, $this->onlineUsers->users)) {
+        if (in_array($to, \cache('online_users'))) {
             $response =  json_encode([
                 'event' => 'private_chat_request_receive',
                 'action' => 'messageReceived',
@@ -263,10 +281,8 @@ class RelayHandle
     {
         collect($receivers)->each(function ($to) use ($responseData, $payload) {
             echo 'hello: \n';
-            if ($this->onlineUsers->where('users_available', $to)->exists()) {
-                if ($this->users[$to] != $this->connection) {
-                    $this->sendMessage($this->users[$to], $payload);
-                }
+            if (in_array($to, cache('online_users'))) {
+                $this->sendMessage($this->users[$to], $payload);
             }
         });
     }
@@ -275,10 +291,18 @@ class RelayHandle
     {
        $index = array_search($client, $this->users);
        $this->users = collect($this->users)->filter(fn($user) => $user == $client)->toArray();
-       $this->onlineUsers->where('users_available', $index)->delete();
+       \cache()->delete('online_users');
 
     }
 
-    
+    public function resetUsers()
+    {
+        $this->users = [];
+        \cache()->delete('online_users');
+    }
 
+    public function getAction(): string
+    {
+        return $this->action;
+    }
 }
