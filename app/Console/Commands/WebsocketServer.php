@@ -102,19 +102,22 @@ class WebsocketServer extends Command
                             $message = "Client says: " . $decodedData;
                             echo $message . "\n";
                             // Broadcast message to all connected clients
-                            foreach ($clients as $client) {
-//                                $client->write($this->encodeWebSocketFrame($decodedData));
-                              echo 'notify me \n';
-                             $relays = $relayHandle->relay($decodedData, $client, $connection);
+                            $relays = $relayHandle->relay($decodedData, $connection);
+                            $relays->handle();
+//                             foreach ($clients as $client) {
+// //                                $client->write($this->encodeWebSocketFrame($decodedData));
+//                               echo 'notify me \n';
+//                              $relays = $relayHandle->relay($decodedData, $client, $connection);
 
-                             if ($relays->getAction() != 'ping' && ($client != $connection)) {
-                                 $relays->handle();
-                                 break;
-                             }
+//                              if ($relays->getAction() != 'ping' && ($client != $connection)) {
+//                                 echo 'not ping ------------------------------------\n\n';
+//                                  $relays->handle();
+//                                  break;
+//                              }
 
-                             $relays->handle();
+//                              $relays->handle();
 
-                         }
+//                          }
                         }
                     }
                 });
