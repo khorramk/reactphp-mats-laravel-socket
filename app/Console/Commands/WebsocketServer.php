@@ -46,12 +46,14 @@ class WebsocketServer extends Command
                 });
             }
 
-//            register_shutdown_function([$this, 'shutdownHandler']);
 
 
             $loop = Loop::get();
             $socket = new SocketServer("$host:$port", (array)$loop);
 
+            if (config('app.env') === 'production') {
+                $socket = new SocketServer("$host:$port", $context, (array)$loop);
+            }
             echo "WebSocket server started at ws://$host:$port\n";
 
             $clients = [];
