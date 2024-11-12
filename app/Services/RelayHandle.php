@@ -11,7 +11,6 @@ class RelayHandle
     private mixed $data;
     private mixed $clientSocket;
 
-    private mixed $connection;
     private array $users = [];
 
     private string $action = '';
@@ -22,7 +21,7 @@ class RelayHandle
 
     }
 
-    public function relay(String $message, $clientSocket, $connection): static
+    public function relay(String $message, $clientSocket): static
     {
         echo 'actual_meesage: ' . $message . '\n';
 //        $this->data = json_decode(strstr(mb_convert_encoding($message, 'UTF-8', 'UTF-8'), '{'));
@@ -30,9 +29,8 @@ class RelayHandle
 //        echo dump($this->data);
         echo json_last_error();
 //        dd(gettype($clientSocket));
-         $this->action = $this->data->action;
+        $this->action = $this->data->action;
         $this->clientSocket = $clientSocket;
-        $this->connection = $connection;
         dump($this->data);
         echo "data ----------  \n";
 
@@ -289,9 +287,14 @@ class RelayHandle
 
     public function disconnect($client)
     {
-       $index = array_search($client, $this->users);
-       $this->users = collect($this->users)->filter(fn($user) => $user == $client)->toArray();
-       \cache()->delete('online_users');
+        $index = array_search($client, $this->users);
+        $this->users = collect($this->users)->filter(fn($user) => $user != $client)->toArray();
+        \cache()->delete('online_users');
+
+        echo 'user disconnected';
+        $onlineUsers = array_keys($this->users);
+
+        Cache::put('online_users', $onlineUsers);
 
     }
 
