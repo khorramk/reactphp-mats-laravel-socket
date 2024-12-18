@@ -4,5 +4,7 @@
 
 ## Setup
 
-1. on folder
-2. php artisan wss:server -host -port
+1. On folder
+2. Setup env so certificate path for ssl pem file is added
+3. In terminal or docker make sure to run below command and configure your server to have reverse proxy
+4. php artisan wss:server -host -port
