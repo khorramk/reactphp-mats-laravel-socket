@@ -35,7 +35,7 @@ class WebsocketServer extends Command
             $port = $this->argument('port');
             $context = [
                 'tls' => [
-                    'local_cert' => '/var/cpanel/ssl/cpanel/mycpanel.pem',
+                    'local_cert' => config('app.certificate_path'),
                 ]
             ];
 
