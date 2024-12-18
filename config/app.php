@@ -54,6 +54,10 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    /***
+     Path to the certificate for WebSocket
+    */
+    'certificate_path' => env('CERTIFICATE', '/cert.pem'),
     /*
     |--------------------------------------------------------------------------
     | Application Timezone
